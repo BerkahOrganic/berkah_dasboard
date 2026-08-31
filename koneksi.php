@@ -2,7 +2,7 @@
     $host = 'localhost';
     $login = 'root';
     $password = '';
-    $database = 'db_bekah_presensi';
+    $database = 'db_bekah_dashboard';
 
         $koneksi = mysqli_connect($host, $login, $password, $database);
 

@@ -440,6 +440,9 @@ for ($b = 1; $b <= 12; $b++) {
                         <i class="bi bi-building"></i> Login Unit
                     </a>
                 </li>
+                <li class="menu-item <?php echo $menu_aktif === 'setting' ? 'active' : ''; ?>">
+                    <a href="setting.php?menu=setting"><i class="bi bi-gear-fill"></i> Setting</a>
+                </li>
             </ul>
 
             <div class="sidebar-footer">
