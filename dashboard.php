@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_login();
 
 $menu_aktif = $_GET['menu'] ?? 'dashboard';
 require_once 'koneksi.php';
@@ -29,7 +31,6 @@ $tahun_dipilih      = isset($_GET['tahun']) ? (int) $_GET['tahun'] : (int) date(
 $label_bulan = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 $kategori_list = ['tepat_waktu', 'terlambat', 'pulang_cepat', 'tidak_absen'];
 
-// Inisialisasi 12 bulan dengan 4 kategori = 0
 $data_bulanan = [];
 for ($b = 1; $b <= 12; $b++) {
     $data_bulanan[$b] = array_fill_keys($kategori_list, 0);
@@ -57,7 +58,6 @@ if ($koneksi) {
                     $kategori = 'tepat_waktu';
                 }
             } else {
-                // I, S, C, OFF tidak dihitung di chart ketepatan waktu ini
                 continue;
             }
 
@@ -67,7 +67,6 @@ if ($koneksi) {
     }
 }
 
-// Susun ulang jadi array per kategori untuk Chart.js (urut bulan 1-12)
 $chart_tepat_waktu   = [];
 $chart_terlambat     = [];
 $chart_pulang_cepat  = [];
@@ -86,11 +85,8 @@ for ($b = 1; $b <= 12; $b++) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Absen Berkah</title>
 
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
     <style>
@@ -110,14 +106,13 @@ for ($b = 1; $b <= 12; $b++) {
         }
 
         .app-shell {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: auto;
+            margin: 50px 100px;
             display: flex;
-            background: #fff;
+            background: #f4f7f6;
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 25px 60px rgba(23, 161, 154, 0.25);
-            min-height: 640px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
         }
 
         .sidebar {
@@ -140,6 +135,7 @@ for ($b = 1; $b <= 12; $b++) {
         }
 
         .brand {
+            padding-left: 20px;
             height: 40px;
             margin-bottom: 0.5rem;
             display: flex;
@@ -148,8 +144,8 @@ for ($b = 1; $b <= 12; $b++) {
         }
 
         .brand-logo {
-            width: 100px;
-            height: 100px;
+            width: 50px;
+            height: 50px;
             object-fit: contain;
             flex-shrink: 0;
             margin-top: 0;
@@ -525,7 +521,6 @@ for ($b = 1; $b <= 12; $b++) {
 
         const dataTahunan = <?php echo json_encode(array_values($data_tahunan)); ?>;
 
-        // ===== Bar chart: Presensi Perbulan =====
         new Chart(document.getElementById('chartBulanan'), {
             type: 'bar',
             data: {
@@ -572,7 +567,6 @@ for ($b = 1; $b <= 12; $b++) {
             }
         });
 
-        // ===== Pie chart: Presensi Pertahun =====
         new Chart(document.getElementById('chartTahunan'), {
             type: 'pie',
             data: {

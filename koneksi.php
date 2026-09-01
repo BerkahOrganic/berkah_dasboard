@@ -1,8 +1,8 @@
 <?php
     $host = 'localhost';
     $login = 'root';
-    $password = '';
-    $database = 'db_bekah_dashboard';
+    $password = '$Berkah_App#26#';
+    $database = 'db_bekah_presensi';
 
         $koneksi = mysqli_connect($host, $login, $password, $database);
 

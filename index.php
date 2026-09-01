@@ -1,7 +1,5 @@
 <?php
 session_start();
-
-// Ambil pesan error dari query string
 $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
 ?>
 <!DOCTYPE html>
@@ -11,9 +9,7 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Absen Berkah</title>
 
-    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
     <style>
@@ -55,7 +51,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             background: #fff;
         }
 
-        /* ---- Panel kiri: bentuk geometris ---- */
         .side-panel {
             position: relative;
             width: 42%;
@@ -69,7 +64,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             height: 0;
         }
 
-        /* segitiga besar tengah (lebih terang) */
         .side-panel .tri-1 {
             top: -10%;
             left: -20%;
@@ -79,7 +73,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             opacity: 0.9;
         }
 
-        /* segitiga bawah (medium) */
         .side-panel .tri-2 {
             bottom: -15%;
             left: -25%;
@@ -89,7 +82,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             opacity: 0.85;
         }
 
-        /* segitiga kecil paling terang, di tengah */
         .side-panel .tri-3 {
             top: 28%;
             left: -10%;
@@ -98,7 +90,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             border-color: transparent transparent transparent var(--pink-lighter);
         }
 
-        /* Tab LOGIN / SIGN IN menempel di tepi kanan panel */
         .tab-group {
             position: absolute;
             right: -1px;
@@ -130,7 +121,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
             background: transparent;
         }
 
-        /* ---- Panel kanan: form ---- */
         .form-panel {
             width: 58%;
             padding: 2.75rem 3rem;
@@ -232,7 +222,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
     <div class="login-wrapper">
         <div class="login-card">
 
-            <!-- Panel geometris kiri -->
             <div class="side-panel">
                 <div class="tri tri-1"></div>
                 <div class="tri tri-2"></div>
@@ -243,7 +232,6 @@ $pesan = isset($_GET['pesan']) ? htmlspecialchars($_GET['pesan']) : '';
                 </div>
             </div>
 
-            <!-- Panel form kanan -->
             <div class="form-panel">
                 <img src="bg-login/logo-berkah.png" alt="Logo Berkah Chicken" class="form-logo">
 

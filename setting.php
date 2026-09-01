@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/includes/auth.php';
+require_admin();
 
 $menu_aktif = $_GET['menu'] ?? 'setting';
 require_once 'koneksi.php';
@@ -225,14 +227,13 @@ if ($koneksi) {
         }
 
         .app-shell {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: auto;
+            margin: 50px 100px;
             display: flex;
-            background: #fff;
+            background: #f4f7f6;
             border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 25px 60px rgba(23, 161, 154, 0.25);
-            min-height: 640px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
         }
 
         .sidebar {
@@ -255,6 +256,7 @@ if ($koneksi) {
         }
 
         .brand {
+            padding-left: 20px;
             height: 40px;
             margin-bottom: 0.5rem;
             display: flex;
@@ -263,8 +265,8 @@ if ($koneksi) {
         }
 
         .brand-logo {
-            width: 100px;
-            height: 100px;
+            width: 50px;
+            height: 50px;
             object-fit: contain;
             flex-shrink: 0;
             margin-top: 0;
