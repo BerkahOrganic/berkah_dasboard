@@ -32,6 +32,12 @@ $halaman        = max(1, (int) ($_GET['halaman'] ?? 1));
 $date_from = $_GET['tanggal_mulai'] ?? date('Y-m-d', strtotime('-6 days'));
 $date_to   = $_GET['tanggal_selesai'] ?? date('Y-m-d');
 
+/* Sortir tabel absensi lewat klik header kolom. */
+$kolom_sortir_valid = ['tanggal', 'nama', 'masuk', 'keluar', 'status'];
+$sort_by  = $_GET['sort'] ?? 'tanggal';
+$sort_by  = in_array($sort_by, $kolom_sortir_valid, true) ? $sort_by : 'tanggal';
+$sort_dir = (($_GET['dir'] ?? 'desc') === 'asc') ? 'asc' : 'desc';
+
 function tanggal_valid($tanggal)
 {
     if (!$tanggal) return false;
@@ -151,6 +157,32 @@ if ($koneksi) {
     }
 }
 
+/* Urutkan hasil sesuai kolom & arah yang dipilih (klik header tabel).
+   Dilakukan di PHP karena kolom "status" dihitung di PHP (tergantung
+   jam standar), bukan langsung dari kolom database. */
+usort($data_absen, function ($a, $b) use ($sort_by, $sort_dir) {
+    switch ($sort_by) {
+        case 'nama':
+            $cmp = strcasecmp($a['nama'], $b['nama']);
+            break;
+        case 'masuk':
+            $cmp = strcmp($a['masuk'] ?? '', $b['masuk'] ?? '');
+            break;
+        case 'keluar':
+            $cmp = strcmp($a['keluar'] ?? '', $b['keluar'] ?? '');
+            break;
+        case 'status':
+            $cmp = strcasecmp($a['status']['label'], $b['status']['label']);
+            break;
+        case 'tanggal':
+        default:
+            $cmp = strcmp($a['tanggal'], $b['tanggal']);
+            if ($cmp === 0) $cmp = strcasecmp($a['nama'], $b['nama']);
+            break;
+    }
+    return $sort_dir === 'asc' ? $cmp : -$cmp;
+});
+
 $total_data    = count($data_absen);
 $total_halaman = max(1, (int) ceil($total_data / $per_halaman));
 $halaman       = min($halaman, $total_halaman);
@@ -174,6 +206,33 @@ function build_query($override = [])
     $params = array_merge($_GET, $override);
     return htmlspecialchars('?' . http_build_query($params));
 }
+
+/* Default arah urut saat kolom baru pertama kali diklik: teks -> A-Z
+   dulu, tanggal/jam -> yang terbaru dulu. Klik lagi pada kolom yang
+   sama akan membalik arahnya. */
+function sort_link($kolom, $label)
+{
+    global $sort_by, $sort_dir;
+
+    $default_dir = in_array($kolom, ['tanggal', 'masuk', 'keluar'], true) ? 'desc' : 'asc';
+    $is_aktif    = $sort_by === $kolom;
+    $dir_baru    = $is_aktif ? ($sort_dir === 'asc' ? 'desc' : 'asc') : $default_dir;
+
+    $icon = 'bi-arrow-down-up';
+    if ($is_aktif) {
+        $icon = $sort_dir === 'asc' ? 'bi-sort-alpha-down' : 'bi-sort-alpha-up';
+        if (in_array($kolom, ['tanggal', 'masuk', 'keluar'], true)) {
+            $icon = $sort_dir === 'asc' ? 'bi-sort-up' : 'bi-sort-down';
+        }
+    }
+
+    $url = build_query(['sort' => $kolom, 'dir' => $dir_baru, 'halaman' => 1]);
+
+    echo '<a href="' . $url . '" class="th-sort' . ($is_aktif ? ' active' : '') . '">'
+        . htmlspecialchars($label)
+        . ' <i class="bi ' . $icon . '"></i>'
+        . '</a>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -185,422 +244,16 @@ function build_query($override = [])
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 
-    <style>
-      :root {
-            --teal-dark: #1a5d0e;
-            --teal-mid: #2e861e;
-            --teal-light: #4ed137;
-            --bg-page: #a7eb9b;
-            --text-muted: #c9f3c2;
-        }
-        body {
-            background-color: var(--bg-page);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            padding: 2rem;
-        }
-        .app-shell {
-            max-width: auto;
-            margin: 50px 100px;
-            display: flex;
-            background: #f4f7f6;
-            border-radius: 24px;
-            overflow: hidden;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
-        }
-        .sidebar {
-            width: 250px;
-            flex-shrink: 0;
-            background: linear-gradient(160deg, var(--teal-dark) 0%, var(--teal-mid) 60%, var(--teal-light) 100%);
-            padding: 1.75rem 1.25rem;
-            display: flex;
-            flex-direction: column;
-            color: #fff;
-        }
-        .brand {
-            font-size: 1.5rem;
-            font-weight: 900;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .brand {
-            padding-left: 20px;
-            height: 40px;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .brand-logo {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            flex-shrink: 0;
-            margin-top: 0;
-        }
-        .brand .accent { color: #ffd23f; }
-        .menu-label {
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.65);
-            margin: 0.5rem 0 0.9rem 0.75rem;
-            user-select: none;
-            pointer-events: none; 
-        }
-        .menu-nav {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
-        }
-        .menu-nav .menu-item a {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.7rem 0.9rem;
-            border-radius: 12px;
-            color: rgba(255, 255, 255, 0.9);
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.92rem;
-        }
-        .menu-nav .menu-item a i {
-            font-size: 1.05rem;
-        }
-        .menu-nav .menu-item a:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        .menu-nav .menu-item.active a {
-            background: #fff;
-            color: var(--teal-dark);
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-        }
-        .sidebar-footer { margin-top: auto; padding-top: 1.5rem; }
-        .btn-logout {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.18);
-            border: none;
-            color: #fff;
-            font-weight: 700;
-            font-size: 0.85rem;
-            padding: 0.6rem;
-            border-radius: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        .main-content {
-            flex: 1;
-            padding: 1.75rem 2rem;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            max-height: 640px;
-        }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 1.5rem;
-            align-items: start;
-        }
-        .custom-card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.03);
-            border: 1px solid #eef4f3;
-        }
-        .card-title-custom {
-            font-size: 1rem;
-            font-weight: 700;
-            color: #4a5568;
-            margin-bottom: 1rem;
-        }
-        .table-ranking {
-            width: 100%;
-            font-size: 0.85rem;
-        }
-        .table-ranking th {
-            color: #2d3748;
-            font-weight: 700;
-            padding: 0.6rem 0.4rem;
-            border-bottom: 2px solid #edf2f7;
-        }
-        .table-ranking td {
-            padding: 0.6rem 0.4rem;
-            border-bottom: 1px solid #f7fafc;
-            color: #4a5568;
-        }
-        table.tabel-absen {
-            width: 100%;
-            font-size: 0.85rem;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-        table.tabel-absen thead th {
-            color: #2d3748;
-            font-weight: 700;
-            padding: 0.75rem 0.5rem;
-            border-bottom: 2px solid #edf2f7;
-        }
-        table.tabel-absen tbody td {
-            padding: 0.75rem 0.5rem;
-            border-bottom: 1px solid #f0f4f0;
-            color: #4a5568;
-            vertical-align: middle;
-        }
-        .badge-status {
-            display: inline-block;
-            padding: 0.25rem 0.85rem;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-        .badge-status.tepat { background: #28a745; color: #fff; }
-        .badge-status.tidak { background: #dc3545; color: #fff; }
-        .badge-status.telat { background: #ffc107; color: #212529; }
-        .badge-status.pulang { background: #fd7e14; color: #fff; }
-        .badge-status.izin { background: #0d6efd; color: #fff; }
-        .badge-status.sakit { background: #6f42c1; color: #fff; }
-        .badge-status.off { background: #6c757d; color: #fff; }
-        
-        .btn-aksi {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            border: 1px solid #e4ece4;
-            background: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #8a9797;
-            text-decoration: none;
-        }
-        .btn-xlsx {
-            border: 1px solid #cbd5e0;
-            background: #fff;
-            color: #2d3748;
-            font-weight: 600;
-            font-size: 0.8rem;
-            padding: 0.3rem 0.6rem;
-            border-radius: 6px;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.3rem;
-            text-decoration: none;
-        }
-        .table-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-top: 1.2rem;
-            font-size: 0.8rem;
-            color: #718096;
-        }
-
-        .foto-bukti-thumb {
-            cursor: pointer;
-            transition: transform 0.15s ease;
-        }
-        .foto-bukti-thumb:hover {
-            transform: scale(1.12);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-        }
-
-        .foto-zoom-wrap {
-            width: 100%;
-            height: 60vh;
-            overflow: hidden;
-            background: #111;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: grab;
-            touch-action: none;
-        }
-        .foto-zoom-wrap img {
-            max-width: 100%;
-            max-height: 100%;
-            transition: transform 0.12s ease;
-            user-select: none;
-            pointer-events: none;
-        }
-        .zoom-controls .btn { width: 34px; }
-        #modalFotoMaps.disabled {
-            pointer-events: none;
-            opacity: 0.5;
-        }
-
-        /* Filter absensi */
-        .filter-panel {
-            background: #f8fbf8;
-            border: 1px solid #e0ebe0;
-            border-radius: 14px;
-            padding: 1rem;
-        }
-        .filter-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-        .quick-filter {
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            flex-wrap: wrap;
-        }
-        .quick-label, .filter-label {
-            font-size: 0.72rem;
-            color: #718096;
-        }
-        .filter-label {
-            display: block;
-            font-weight: 700;
-            color: #4a5568;
-            margin-bottom: 0.3rem;
-        }
-        .quick-btn {
-            border: 1px solid #d7e5d7;
-            background: #fff;
-            color: #2e6b24;
-            border-radius: 7px;
-            padding: 0.3rem 0.55rem;
-            font-size: 0.72rem;
-            cursor: pointer;
-        }
-        .quick-btn:hover {
-            background: #eaf7e8;
-            border-color: #8fc987;
-        }
-        .filter-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 0.75rem;
-        }
-        .filter-grid .form-control,
-        .filter-grid .form-select {
-            border-color: #dfe9df;
-            border-radius: 8px;
-            min-height: 34px;
-            font-size: 0.78rem;
-        }
-        .filter-grid .input-group-text {
-            border-color: #dfe9df;
-            color: #718096;
-        }
-        .filter-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.5rem;
-            margin-top: 0.9rem;
-        }
-        .filter-summary {
-            display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
-            gap: 0.55rem;
-        }
-        .summary-item {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            background: #fff;
-            border: 1px solid #edf2ed;
-            border-radius: 10px;
-            padding: 0.55rem 0.65rem;
-        }
-        .summary-item small {
-            display: block;
-            color: #718096;
-            font-size: 0.65rem;
-        }
-        .summary-item strong {
-            display: block;
-            color: #2d3748;
-            font-size: 0.95rem;
-        }
-        .summary-icon {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: #edf2f7;
-            color: #4a5568;
-            flex-shrink: 0;
-        }
-        .summary-icon.tepat-icon { background: #e6f7ea; color: #28a745; }
-        .summary-icon.telat-icon { background: #fff5d6; color: #c28a00; }
-        .summary-icon.izin-icon { background: #e8f1ff; color: #0d6efd; }
-        .summary-icon.sakit-icon { background: #f0e9ff; color: #6f42c1; }
-        .summary-icon.tidak-icon { background: #ffe8eb; color: #dc3545; }
-
-        @media (max-width: 1200px) {
-            .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-            .filter-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-
-        @media (max-width: 992px) {
-            .dashboard-grid { grid-template-columns: 1fr; }
-            .app-shell { flex-direction: column; }
-            .sidebar { width: 100%; }
-        }
-    </style>
+    <link href="assets/css/style.css" rel="stylesheet">
 </head>
 <body>
 
     <div class="app-shell">
 
-        <aside class="sidebar">
-            <div class="brand">
-                <img src="bg-login/logo-berkah.png" alt="Logo Berkah" class="brand-logo">   
-                <span><span class="accent">B</span>erkah</span>
-            </div>
-            <div class="menu-label">Main Menu</div>
-            <ul class="menu-nav">
-                <li class="menu-item <?php echo $menu_aktif === 'dashboard' ? 'active' : ''; ?>">
-                    <a href="dashboard.php?menu=dashboard"><i class="bi bi-grid-fill"></i> Dashboard</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'absensi' ? 'active' : ''; ?>">
-                    <a href="absensi.php?menu=absensi"><i class="bi bi-person-check-fill"></i> Absensi</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'karyawan' ? 'active' : ''; ?>">
-                    <a href="karyawan.php?menu=karyawan"><i class="bi bi-people-fill"></i> Karyawan</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'user' ? 'active' : ''; ?>">
-                    <a href="user.php?menu=user"><i class="bi bi-person-badge-fill"></i> User</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'jabatan' ? 'active' : ''; ?>">
-                    <a href="jabatan.php?menu=jabatan"><i class="bi bi-briefcase-fill"></i> Jabatan</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'login_unit' ? 'active' : ''; ?>">
-                    <a href="login_unit.php?menu=login_unit"><i class="bi bi-building"></i> Login Unit</a>
-                </li>
-                <li class="menu-item <?php echo $menu_aktif === 'setting' ? 'active' : ''; ?>">
-                    <a href="setting.php?menu=setting"><i class="bi bi-gear-fill"></i> Setting</a>
-                </li>
-            </ul>
-
-            <div class="sidebar-footer">
-                <form action="logout.php" method="POST">
-                    <button type="submit" class="btn-logout">
-                        <i class="bi bi-box-arrow-right"></i> Go Out
-                    </button>
-                </form>
-            </div>
-        </aside>
+        <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
         <main class="main-content">
+            <?php include __DIR__ . '/includes/mobile-topbar.php'; ?>
             <div class="dashboard-grid">
 
                 <div class="custom-card">
@@ -653,29 +306,6 @@ function build_query($override = [])
                     <p class="text-muted mt-4 mb-0" style="font-size: 0.72rem; line-height: 1.4;">
                         *) Tepat waktu dihitung berdasarkan jam masuk standar yang tersimpan di sistem.
                     </p>
-                </div>
-
-                <div class="custom-card">
-
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <h6 class="card-title-custom mb-1">Presensi Terbaru</h6>
-                            <small class="text-muted">
-                                <?php echo date('d/m/Y', strtotime($date_from)); ?> -
-                                <?php echo date('d/m/Y', strtotime($date_to)); ?>
-                            </small>
-                        </div>
-
-                        <a href="export_excel.php<?php
-                            $export_params = $_GET;
-                            $export_params['menu'] = 'absensi';
-                            unset($export_params['halaman']);
-                            echo htmlspecialchars('?' . http_build_query($export_params));
-                        ?>" class="btn-xlsx">
-                            <i class="bi bi-file-earmark-excel"></i> XLSX
-                        </a>
-                    </div>
-
                     <form method="GET" action="absensi.php" class="filter-panel mb-3">
                         <input type="hidden" name="menu" value="absensi">
 
@@ -684,12 +314,15 @@ function build_query($override = [])
                                 <strong><i class="bi bi-funnel-fill me-1"></i> Filter Data</strong>
                                 <small class="d-block text-muted">Default: 7 hari terakhir.</small>
                             </div>
-                            <div class="quick-filter">
+                            
+                            <div class="quick-filter-wrapper">
                                 <span class="quick-label">Cepat:</span>
-                                <button type="button" class="quick-btn" onclick="setRentang(6)">7 Hari</button>
-                                <button type="button" class="quick-btn" onclick="setRentang(29)">30 Hari</button>
-                                <button type="button" class="quick-btn" onclick="setBulanIni()">Bulan Ini</button>
-                                <button type="button" class="quick-btn" onclick="setRentang(0)">Hari Ini</button>
+                                <div class="quick-filter">
+                                    <button type="button" class="quick-btn" onclick="setRentang(6)">7 Hari</button>
+                                    <button type="button" class="quick-btn" onclick="setRentang(29)">30 Hari</button>
+                                    <button type="button" class="quick-btn" onclick="setBulanIni()">Bulan Ini</button>
+                                    <button type="button" class="quick-btn" onclick="setRentang(0)">Hari Ini</button>
+                                </div>
                             </div>
                         </div>
 
@@ -799,6 +432,30 @@ function build_query($override = [])
                             </a>
                         </div>
                     </form>
+                </div>
+
+                <div class="custom-card">
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="card-title-custom mb-1">Presensi Terbaru</h6>
+                            <small class="text-muted">
+                                <?php echo date('d/m/Y', strtotime($date_from)); ?> -
+                                <?php echo date('d/m/Y', strtotime($date_to)); ?>
+                            </small>
+                        </div>
+
+                        <a href="export_excel.php<?php
+                            $export_params = $_GET;
+                            $export_params['menu'] = 'absensi';
+                            unset($export_params['halaman']);
+                            echo htmlspecialchars('?' . http_build_query($export_params));
+                        ?>" class="btn-xlsx">
+                            <i class="bi bi-file-earmark-excel"></i> XLSX
+                        </a>
+                    </div>
+
+                    
 
                     <div class="filter-summary mb-3">
                         <div class="summary-item"><span class="summary-icon"><i class="bi bi-list-check"></i></span><div><small>Total</small><strong><?php echo number_format($statistik['total']); ?></strong></div></div>
@@ -814,12 +471,12 @@ function build_query($override = [])
                             <thead>
                                 <tr>
                                     <th style="width: 5%;">No</th>
-                                    <th>Nama Pegawai</th>
-                                    <th>Tanggal</th>
-                                    <th>Waktu Masuk</th>
-                                    <th>Waktu Keluar</th>
-                                    <th>Jenis</th>
-                                    <th>Status</th>
+                                    <th><?php sort_link('nama', 'Nama Pegawai'); ?></th>
+                                    <th><?php sort_link('tanggal', 'Tanggal'); ?></th>
+                                    <th><?php sort_link('masuk', 'Waktu Masuk'); ?></th>
+                                    <th><?php sort_link('keluar', 'Waktu Keluar'); ?></th>
+                                    <th><?php sort_link('status', 'Status'); ?></th>
+                                    <th>Lokasi</th>
                                     <th style="text-align: center;">Foto</th>
                                     <th style="text-align: center;">Aksi</th>
                                 </tr>
@@ -844,11 +501,17 @@ function build_query($override = [])
                                             <td><?php echo $tgl_tampil; ?></td>
                                             <td><?php echo $row['masuk']; ?></td>
                                             <td><?php echo $row['keluar']; ?></td>
-                                            <td><?php echo $jenis_absen; ?></td>
                                             <td>
                                                 <span class="badge-status <?php echo $row['status']['class']; ?>">
                                                     <?php echo $row['status']['label']; ?>
                                                 </span>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                    echo !empty($row['latitude']) && !empty($row['longitude']) 
+                                                        ? "Lat: " . htmlspecialchars($row['latitude']) . ", Lng: " . htmlspecialchars($row['longitude']) 
+                                                        : "-";
+                                                ?>
                                             </td>
                                             <td style="text-align: center;">
                                                 <?php if (!empty($row['foto_bukti'])): ?>
@@ -950,6 +613,7 @@ function build_query($override = [])
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="assets/js/app.js"></script>
     <script>
         function formatTanggalJS(date) {
             const y = date.getFullYear();
